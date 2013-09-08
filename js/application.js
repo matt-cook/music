@@ -175,7 +175,11 @@
     }
 
     function processScore(score, from, to, album, artist) {
-        console.log(from + ' : ' + album + ' - ' + artist + ' : ' + score);
+        var d = new Date(from*1000);
+        var year = d.getFullYear();
+        var month = d.getMonth()+1;
+        var day = d.getDate();
+        console.log(' '+month+'/'+day+'/'+year+ ' : ' + album + ' - ' + artist + ' : ' + score);
     }
 
     function searchPitchfork(album, artist, from, to) {
