@@ -105,7 +105,7 @@
                 break;
             }
         }
-
+        var reviewUrl = -1;
         if (!$.isEmptyObject(reviews) && !$.isEmptyObject(reviews.objects)) {
             // We have results
             reviews = (reviews.objects.length > 0) ? reviews.objects : [reviews.objects];
@@ -133,13 +133,13 @@
                 theResult = returnResult(reviews[0]);
             }
 
-            var reviewUrl = "http://pitchfork.com" + theResult.url;
-            localcake.put(url, reviewUrl);
+            reviewUrl = "http://pitchfork.com" + theResult.url;
             processReview(reviewUrl, from, to, album, artist);
 
         } else {
             console.error('The search returned no reviews');
         }
+        localcake.put(url, reviewUrl);
     }
 
     function processReview(url, from, to, album, artist) {
@@ -184,7 +184,9 @@
         var url = "http://pitchfork.com/search/ac/?query=" + encodeURIComponent(sanitize(album)) + "%20-%20" + encodeURIComponent(sanitize(artist));
 
         var reviewUrl = localcake.get(url);
-        if (reviewUrl) processReview(reviewUrl, from, to, album, artist);
+ if (reviewUrl) {
+    if(reviewUrl != -1) processReview(reviewUrl, from, to, album, artist);
+ }
         else {
             $.ajax({
                 url: "http://query.yahooapis.com/v1/public/yql",
