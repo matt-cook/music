@@ -5,107 +5,107 @@
     var lastfm_key = "329696137d0d82dbc429a8091d00b9fd";
     var lastfm_user = "lookitscook";
     var lastfm_requestDelay = 1000; //in milliseconds
+    var yahoo_requestDelay = 500;
 
     var url = "http://ws.audioscrobbler.com/2.0/?method=user.getWeeklyChartList&user=" + lastfm_user + "&api_key=" + lastfm_key + "&format=json";
-
-    var charts = localcake.get(url);
-    if (charts) getCharts(charts);
-    else {
-        $.ajax({
-            url: url,
-            type: 'GET',
-            dataType: 'jsonp',
-            success: foundChartList(url),
-            error: function (xhr, textStatus, errorThrown) {
-                console.error(xhr, textStatus, errorThrown);
-            }
-        });
-    }
-
-    function foundChartList(url) {
-        return function (data, textStatus, request) {
-            var charts = data.weeklychartlist.chart;
-            localcake.put(url, charts);
-            getCharts(charts);
-        }
-    }
-
-    function getCharts(chart) {
-        for (i = 100; i < chart.length && i < 115; i++) {
-            var from = chart[i].from;
-            var to = chart[i].to;
-            var url = "http://ws.audioscrobbler.com/2.0/?method=user.getweeklyalbumchart&user=" + lastfm_user + "&api_key=" + lastfm_key + "&format=json&from=" + from + "&to=" + to;
-            var albums = localcake.get(url);
-            if (albums) {
-                if (albums.length) getScores(albums, from, to);
-            } else {
-                $.ajax({
-                    url: url,
-                    type: 'GET',
-                    dataType: 'jsonp',
-                    success: foundChart(url, from, to),
-                    error: function (xhr, textStatus, errorThrown) {
-                        console.error(xhr, textStatus, errorThrown);
+ 
+    //ajax function that will only make one remote call per 'delay' ms.
+    //will also attempt to pull from cupcake localstorage before remote
+    //resources must be an array of objects with parameter URL (among others if needed)
+    function get(resources,parser,callback,i,delay){
+        if(typeof i == "undefined") i = 0;
+        if(i != resources.length){
+            var response = localcake.get(resources[i].url);
+            if(response) {
+                callback(response,resources[i]);
+                get(resources,parser,callback,++i,delay);
+            }else{
+                setTimeout(makeRequest(resources[i],resources,parser,callback,i,delay),delay);
+                function makeRequest(resource,resources,parser,callback,i,delay){
+                    return function(){
+                        $.ajax({
+                            url: resource.url,
+                            type: 'GET',
+                            dataType: 'jsonp',
+                            success: succeeded(resource),
+                            error: function (xhr, textStatus, errorThrown) {
+                                console.error(xhr, textStatus, errorThrown);
+                            }
+                        });
+                        function succeeded(resource){
+                            return function (data, textStatus, request) {
+                                var response = parser(data);
+                                localcake.put(resource.url, response);
+                                callback(response,resource);
+                            }
+                        }
+                        get(resources,parser,callback,++i,delay);
                     }
-                });
+                }
             }
         }
     }
+ 
+    get(new Array(new Object({url:url})),parseChartList,getCharts,0,lastfm_requestDelay);
+ 
+    function parseChartList(data){
+        return data.weeklychartlist.chart;
+    }
 
-    function foundChart(url, from, to) {
-        return function (data, textStatus, request) {
-            var albums = new Array();
-            if (data.weeklyalbumchart && data.weeklyalbumchart.album) {
-                if (Object.prototype.toString.call(data.weeklyalbumchart.album) === '[object Array]') {
-                    for (var i = 0; i < data.weeklyalbumchart.album.length; i++) {
-                        albums[i] = data.weeklyalbumchart.album[i];
-                    }
-                } else albums[0] = data.weeklyalbumchart.album;
+    function getCharts(data) {
+        var charts = new Array();
+        for (i = 100; i < data.length && i < 115; i++) {
+            var from = data[i].from;
+            var to = data[i].to;
+            charts.push(new Object({
+                url:"http://ws.audioscrobbler.com/2.0/?method=user.getweeklyalbumchart&user=" + lastfm_user + "&api_key=" + lastfm_key + "&format=json&from=" + from + "&to=" + to,
+                from: from,
+                to: to
+            }));
+        }
+        get(charts,parseChart,getReviews,0,lastfm_requestDelay);
+    }
+
+    function parseChart(data) {
+        var albums = new Array();
+        if (data.weeklyalbumchart && data.weeklyalbumchart.album) {
+            if (Object.prototype.toString.call(data.weeklyalbumchart.album) === '[object Array]') {
+                for (var i = 0; i < data.weeklyalbumchart.album.length; i++) {
+                    albums.push(data.weeklyalbumchart.album[i]);
+                }
+            } else albums.push(data.weeklyalbumchart.album);
+        }
+        return albums;
+    }
+
+    function getReviews(albums,chart) {
+        if(albums.length){
+            var searches = new Array();
+            for (var i = 0; i < albums.length; i++){
+                var s = jQuery.extend(true, {}, chart); //deep copy
+                s.album = albums[i].name;
+                s.artist = albums[i].artist["#text"];
+                var url = "http://pitchfork.com/search/ac/?query=" + encodeURIComponent(sanitize(s.album)) + "%20-%20" + encodeURIComponent(sanitize(s.artist));
+                var q = encodeURIComponent("select * from json where url=\"" + url + "\"");
+                s.url = "http://query.yahooapis.com/v1/public/yql?q="+q+"&format=json";
+                searches.push(s);
             }
-            localcake.put(url, albums);
-            if (albums.length) getScores(albums, from, to);
+            get(searches,parseReview,getScores,0,yahoo_requestDelay);
         }
     }
-
-    function getScores(albums, from, to) {
-        for (var i = 0; i < albums.length; i++)
-            searchPitchfork(albums[i].name, albums[i].artist["#text"], from, to);
-    }
-
-    function sanitize(str) {
-        return str.toLowerCase();
-    }
-
-    function normalizeP4kResult(result) {
-        var parts = result.split(' - '),
-            artist = parts[0],
-            album = parts[1];
-
-        return {
-            artist: sanitize(artist),
-            album: sanitize(album)
-        };
-    }
-
-    function returnResult(obj) {
-        return $.extend({
-            url: obj.url
-        }, normalizeP4kResult(obj.name));
-    }
-
-    function getReviewUrl(data, url, from, to, album, artist) {
+ 
+    function parseReview(data){
+        var reviewUrl = -1;
         var searchData = data.query.results.json.json;
         reviews = {},
         theResult = {};
-
         // Find the reviews object
         for (var i = 0, m = searchData.length; i < m; i++) {
             if (searchData[i].label.toLowerCase() === "reviews") {
-                reviews = searchData[i];
+                reviews = jQuery.extend(true, {}, searchData[i]);
                 break;
             }
         }
-        var reviewUrl = -1;
         if (!$.isEmptyObject(reviews) && !$.isEmptyObject(reviews.objects)) {
             // We have results
             reviews = (reviews.objects.length > 0) ? reviews.objects : [reviews.objects];
@@ -134,84 +134,50 @@
             }
 
             reviewUrl = "http://pitchfork.com" + theResult.url;
-            processReview(reviewUrl, from, to, album, artist);
-
-        } else {
-            console.error('The search returned no reviews');
         }
-        localcake.put(url, reviewUrl);
+        return reviewUrl;
     }
-
-    function processReview(url, from, to, album, artist) {
-        var score = localcake.get(url);
-        if (score) processScore(score, from, to, album, artist);
-        else getAlbumScore(url, from, to, album, artist);
-    }
-
-    function getAlbumScore(url, from, to, album, artist) {
-
-        // Create YQL query to get span containing score
-        var query = encodeURIComponent('select content from html where url="' + url + '" and compat="html5" and xpath=\'//div[@id="main"]/ul/li/div[@class="info"]/span\''),
-
-            // JSONP url for YQL query
-            yqlurl = 'http://query.yahooapis.com/v1/public/yql?q=' + query + '&format=json&callback=?';
-
-        $.ajax({
-            url: yqlurl,
-            type: 'GET',
-            dataType: 'jsonp',
-            success: scoreFound(url, from, to, album, artist),
-            error: function (xhr, textStatus, errorThrown) {
-                console.error(xhr, textStatus, errorThrown);
-            }
-        });
-    }
-
-    function scoreFound(url, from, to, album, artist) {
-        return function (data, textStatus, xhr) {
-            processScore(data.query.results.span, from, to, album, artist);
-            localcake.put(url, data.query.results.span);
+ 
+    function getScores(reviewURL,record){
+        if(reviewURL && reviewURL != -1){
+            record.reviewURL = reviewURL;
+            var q = encodeURIComponent('select content from html where url="' + reviewURL + '" and compat="html5" and xpath=\'//div[@id="main"]/ul/li/div[@class="info"]/span\'');
+            record.url = 'http://query.yahooapis.com/v1/public/yql?q=' + q + '&format=json&callback=?'
+            get(new Array(record),parseScore,scoreFound,0,yahoo_requestDelay);
         }
     }
-
-    function processScore(score, from, to, album, artist) {
-        var d = new Date(from*1000);
-        var year = d.getFullYear();
-        var month = d.getMonth()+1;
-        var day = d.getDate();
-        console.log(' '+month+'/'+day+'/'+year+ ' : ' + album + ' - ' + artist + ' : ' + score);
+ 
+    function parseScore(data){
+        return data.query.results.span;
+    }
+ 
+    function scoreFound(score,record){
+        record.score = score;
+        delete record["url"];
+        console.log(record);
+    } 
+ 
+    //----- utility functions for pitchfork search -----//
+    
+    function sanitize(str) {
+        return str.toLowerCase();
     }
 
-    function searchPitchfork(album, artist, from, to) {
+    function normalizeP4kResult(result) {
+        var parts = result.split(' - '),
+            artist = parts[0],
+            album = parts[1];
 
-
-        var url = "http://pitchfork.com/search/ac/?query=" + encodeURIComponent(sanitize(album)) + "%20-%20" + encodeURIComponent(sanitize(artist));
-
-        var reviewUrl = localcake.get(url);
- if (reviewUrl) {
-    if(reviewUrl != -1) processReview(reviewUrl, from, to, album, artist);
- }
-        else {
-            $.ajax({
-                url: "http://query.yahooapis.com/v1/public/yql",
-                type: 'GET',
-                dataType: 'jsonp',
-                data: {
-                    q: "select * from json where url=\"" + url + "\"",
-                    format: "json"
-                },
-                success: matchFound(url, from, to, album, artist),
-                error: function (xhr, textStatus, errorThrown) {
-                    console.error(xhr, textStatus, errorThrown);
-                }
-            });
-        }
+        return {
+            artist: sanitize(artist),
+            album: sanitize(album)
+        };
     }
 
-    function matchFound(url, from, to, album, artist) {
-        return function (data, textStatus, xhr) {
-            getReviewUrl(data, url, from, to, album, artist);
-        }
+    function returnResult(obj) {
+        return $.extend({
+            url: obj.url
+        }, normalizeP4kResult(obj.name));
     }
 
 })(jQuery);
