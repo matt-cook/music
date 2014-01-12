@@ -19,12 +19,17 @@
                 fill: true
             }
         },
+        grid: {
+            show: false
+        },
         xaxis: {
-            mode: "time"
+            mode: "time",
+            ticks: false
         },
         yaxis: {
             min:0,
-            max: 10
+            max: 10,
+            ticks: false
         }
     });
 
