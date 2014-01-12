@@ -12,6 +12,12 @@
 
 
     var plot = $.plot($("#chart"),[series],{
+        series: {
+            lines: {
+                show: true,
+                fill: true
+            }
+        },
         xaxis: {
             mode: "time"
         },
@@ -98,6 +104,7 @@
                 var s = jQuery.extend(true, {}, chart); //deep copy
                 s.album = albums[i].name;
                 s.artist = albums[i].artist["#text"];
+                s.playcount = parseInt(albums[i].playcount);
                 var url = "http://pitchfork.com/search/ac/?query=" + encodeURIComponent(sanitize(s.album)) + "%20-%20" + encodeURIComponent(sanitize(s.artist));
                 var q = encodeURIComponent("select * from json where url=\"" + url + "\"");
                 s.url = "http://query.yahooapis.com/v1/public/yql?q="+q+"&format=json";
@@ -178,16 +185,20 @@
         //don't need to store the final query URL
         delete record["url"]; 
         
+        //calculate weekly score
+        //playcount of individual albums is factored into weekly average
         if(results[record.to]){
-            results[record.to].sum += record.score;
+            results[record.to].sum += record.score * record.playcount;
+            results[record.to].playcount += record.playcount;
             results[record.to].data.push(record);
-            results[record.to].score = results[record.to].sum / results[record.to].data.length;
+            results[record.to].score = results[record.to].sum / results[record.to].playcount;
             series[results[record.to].index][1] = results[record.to].score;
         }else{
             series.push([record.to*1000,record.score]);
             results[record.to] = {
                 data: [record],
-                sum: record.score,
+                playcount: record.playcount,
+                sum: record.score * record.playcount,
                 score: record.score,
                 timestamp: record.to,
                 index: series.length-1
