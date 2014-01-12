@@ -1,13 +1,26 @@
 //pitchfork scraping originally from:
 //http://lukecod.es/blog/2012/02/14/pitchfork-dot-com-album-rating-api/
 (function ($, undefined) {
-
+ $(document).ready(function(){
     var lastfm_key = "329696137d0d82dbc429a8091d00b9fd";
     var lastfm_user = "lookitscook";
     var lastfm_requestDelay = 1000; //in milliseconds
     var yahoo_requestDelay = 500;
+    var results = [], series = [];
 
     var url = "http://ws.audioscrobbler.com/2.0/?method=user.getWeeklyChartList&user=" + lastfm_user + "&api_key=" + lastfm_key + "&format=json";
+
+
+    var plot = $.plot($("#chart"),[series],{
+        xaxis: {
+            mode: "time"
+        },
+        yaxis: {
+            min:0,
+            max: 10
+        }
+    });
+
  
     //ajax function that will only make one remote call per 'delay' ms.
     //will also attempt to pull from cupcake localstorage before remote
@@ -54,7 +67,7 @@
 
     function getCharts(data) {
         var charts = new Array();
-        for (i = 100; i < data.length && i < 115; i++) {
+        for (i = 0; i < data.length; i++) {
             var from = data[i].from;
             var to = data[i].to;
             charts.push(new Object({
@@ -152,9 +165,40 @@
     }
  
     function scoreFound(score,record){
-        record.score = score;
-        delete record["url"];
-        console.log(record);
+    
+        if(Array.isArray(score)){
+            //use average review score, if multiple reviews
+            var sum = 0;
+            for(var i = 0; i < score.length; i++)
+                sum += parseInt(score[i]);
+            record.score = sum/score.length;
+        }else
+            record.score = parseInt(score);
+        
+        //don't need to store the final query URL
+        delete record["url"]; 
+        
+        if(results[record.to]){
+            results[record.to].sum += record.score;
+            results[record.to].data.push(record);
+            results[record.to].score = results[record.to].sum / results[record.to].data.length;
+            series[results[record.to].index][1] = results[record.to].score;
+        }else{
+            series.push([record.to*1000,record.score]);
+            results[record.to] = {
+                data: [record],
+                sum: record.score,
+                score: record.score,
+                timestamp: record.to,
+                index: series.length-1
+            }
+        }
+        console.log(results[record.to]);
+        plot.setData([series.slice(0).sort(function(a,b){
+            return a[0] - b[0];
+        })]);
+        plot.setupGrid();
+        plot.draw();
     } 
  
     //----- utility functions for pitchfork search -----//
@@ -179,5 +223,5 @@
             url: obj.url
         }, normalizeP4kResult(obj.name));
     }
-
+ });
 })(jQuery);

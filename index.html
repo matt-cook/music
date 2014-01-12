@@ -4,12 +4,27 @@
     <meta charset="utf-8">
     <title>Music Taste</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+    <script src="js/lib/flot/jquery.min.js"></script>
+    <script src="js/lib/flot/jquery.flot.min.js"></script>
+    <script src="js/lib/flot/jquery.flot.time.min.js"></script>
     <script src="js/lib/cupcake.min.js"></script>
     <script src="js/application.js"></script>
+    <style type="text/css">
+        body,html{
+            margin:0;
+            padding:0;
+            height:100%;
+            width:100%;
+        }
+        #chart{
+            height:100%;
+            width:100%;
+            display:block;
+            position:absolute;
+        }
+    </style>
   </head>
   <body>
-
+        <div id="chart"></div>
   </body>
 </html>
