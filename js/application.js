@@ -7,6 +7,7 @@
     var lastfm_requestDelay = 1000; //in milliseconds
     var yahoo_requestDelay = 500;
     var results = [], series = [];
+    var fitter = new LineFitter();
 
     var url = "http://ws.audioscrobbler.com/2.0/?method=user.getWeeklyChartList&user=" + lastfm_user + "&api_key=" + lastfm_key + "&format=json";
 
@@ -188,11 +189,13 @@
         //calculate weekly score
         //playcount of individual albums is factored into weekly average
         if(results[record.to]){
+            fitter.subtract(record.to*1000,results[record.to].score);
             results[record.to].sum += record.score * record.playcount;
             results[record.to].playcount += record.playcount;
             results[record.to].data.push(record);
             results[record.to].score = results[record.to].sum / results[record.to].playcount;
             series[results[record.to].index][1] = results[record.to].score;
+            fitter.add(record.to*1000,results[record.to].score)
         }else{
             series.push([record.to*1000,record.score]);
             results[record.to] = {
@@ -203,11 +206,21 @@
                 timestamp: record.to,
                 index: series.length-1
             }
+            fitter.add(record.to*1000,record.score);
         }
         console.log(results[record.to]);
-        plot.setData([series.slice(0).sort(function(a,b){
+        var sortedSeries = series.slice(0).sort(function(a,b){
             return a[0] - b[0];
-        })]);
+        });
+        var xMin = sortedSeries[0][0];
+        var xMax = sortedSeries[sortedSeries.length-1][0];
+        var fittedSeries = [[xMin,fitter.project(xMin)],[xMax,fitter.project(xMax)]];
+        plot.setData([{
+            data:sortedSeries
+        },{
+            data: fittedSeries,
+            lines: { show: true, fill: false }
+        }]);
         plot.setupGrid();
         plot.draw();
     } 
