@@ -53,8 +53,7 @@
             left: x + 5,
             padding: '5px',
             color: '#fff',
-            'background-color': '#000',
-            opacity: 0.80
+            'background-color': '#000'
         }).appendTo("body").fadeIn(200);
     }
     
