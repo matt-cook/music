@@ -18,24 +18,75 @@
             padding:0;
             height:100%;
             width:100%;
-            background:#fff;
             font-family:helvetica,sans-serif;
         }
+        body.loading{
+            background-image:url(img/loading.gif);
+            background-position:center;
+            background-repeat:no-repeat;
+        }
+        .hidden, .loading #result, .loading #chart{
+            display:none;
+            visibility:hidden;
+        }
         #chart{
-            height:100%;
+            height:90%;
             width:100%;
             display:block;
             position:absolute;
             left:0;
-            bottom:0;
+            bottom:10%;
         }
         #chart canvas{
             height:100% !important;
             width:100% !important;
         }
+        #result{
+            width:100%;
+            position:absolute;
+            top:2%;
+            left:0;
+            text-align:center;
+        }
+        a{
+            background:#000;
+            color:#fff;
+            padding:0.15em 0.35em;
+            text-decoration:none;
+        }
+        #status{
+            position:absolute;
+            bottom:0;
+            right:0;
+            text-align:right;
+            padding:1em;
+            color:#999;
+        }
+        #details{
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            height: 10%;
+            width: 100%;
+            text-align:right;
+            background:#EBEBEB;
+        }
     </style>
   </head>
-  <body>
-        <div id="chart"></div>
+  <body class="loading">
+        <div id="chart">&nbsp;</div>
+        <div id="details">&nbsp;</div>
+        <div id="result">
+            <h1>
+                <a href="#" class="name">John Doe</a>'s taste in music is <em class="verdict">&hellip;</em>
+            </h1>
+            <p class="hidden">
+                by <span class="percent">6</span>% per
+                <span class="timespan">year</span>
+                according to <a class="lastfm" href="http://www.last.fm">last.fm</a>
+                and <a href="http://www.pitchfork.com">pitchfork.com</a>
+            </p>
+        </div>
+        <div id="status">loading...</div>
   </body>
 </html>

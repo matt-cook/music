@@ -3,15 +3,19 @@
 
 (function ($, undefined) {
  $(document).ready(function(){
+  
     var lastfm_key = "329696137d0d82dbc429a8091d00b9fd";
-    var lastfm_user = "lookitscook";
+    var default_lastfm_user = "lookitscook";
     var lastfm_requestDelay = 1000; //in milliseconds
     var yahoo_requestDelay = 500;
+    var date_format = 'MMM yyyy';
     var results = [], series = [];
     var fitter = new LineFitter();
+    var lastfm_user = getUrlVars()["q"];
+    if(!lastfm_user)
+        window.location = location.pathname+"?q="+default_lastfm_user;
 
-    var url = "http://ws.audioscrobbler.com/2.0/?method=user.getWeeklyChartList&user=" + lastfm_user + "&api_key=" + lastfm_key + "&format=json";
-
+    var url = "http://ws.audioscrobbler.com/2.0/?method=user.getInfo&user=" + lastfm_user + "&api_key=" + lastfm_key + "&format=json";
 
     var plot = $.plot($("#chart"),[series],{
         series: {
@@ -70,7 +74,7 @@
                 var x = item.datapoint[0].toFixed(2),
                     y = item.datapoint[1].toFixed(2);
                 
-                showTooltip(item.pageX, item.pageY, jQuery.format.date(parseInt(x),'MMM yyyy') + ": " + y);
+                showTooltip(item.pageX, item.pageY, jQuery.format.date(parseInt(x),date_format) + ": " + y);
             }
         }
         else {
@@ -79,7 +83,6 @@
         }
     });
 
- 
     //ajax function that will only make one remote call per 'delay' ms.
     //will also attempt to pull from cupcake localstorage before remote
     //resources must be an array of objects with parameter URL (among others if needed)
@@ -117,7 +120,23 @@
         }
     }
  
-    get(new Array(new Object({url:url})),parseChartList,getCharts,0,lastfm_requestDelay);
+    status('loading user details...');
+    get(new Array(new Object({url:url})),parseUser,getChartList,0,lastfm_requestDelay);
+    
+    function parseUser(data){
+        return {
+            realname: data.user.realname,
+            url: data.user.url
+        };
+    }
+    
+    function getChartList(user){
+        $('#result .name').text(user.realname);
+        $('#resut .lastfm').attr('href',user.url);
+        status("getting weekly chart lists...");
+        var url = "http://ws.audioscrobbler.com/2.0/?method=user.getWeeklyChartList&user=" + lastfm_user + "&api_key=" + lastfm_key + "&format=json";
+        get(new Array(new Object({url:url})),parseChartList,getCharts,0,lastfm_requestDelay);
+    }
  
     function parseChartList(data){
         return data.weeklychartlist.chart;
@@ -128,6 +147,7 @@
         for (i = 0; i < data.length; i++) {
             var from = data[i].from;
             var to = data[i].to;
+            status("loading weekly chart for "+jQuery.format.date(parseInt(to)*1000,date_format)+"...");
             charts.push(new Object({
                 url:"http://ws.audioscrobbler.com/2.0/?method=user.getweeklyalbumchart&user=" + lastfm_user + "&api_key=" + lastfm_key + "&format=json&from=" + from + "&to=" + to,
                 from: from,
@@ -155,6 +175,7 @@
             for (var i = 0; i < albums.length; i++){
                 var s = jQuery.extend(true, {}, chart); //deep copy
                 s.album = albums[i].name;
+                status("searching for reviews of "+s.album+"...");
                 s.artist = albums[i].artist["#text"];
                 s.playcount = parseInt(albums[i].playcount);
                 var url = "http://pitchfork.com/search/ac/?query=" + encodeURIComponent(sanitize(s.album)) + "%20-%20" + encodeURIComponent(sanitize(s.artist));
@@ -214,6 +235,7 @@
  
     function getScores(reviewURL,record){
         if(reviewURL && reviewURL != -1){
+            status("getting scores...");
             record.reviewURL = reviewURL;
             var q = encodeURIComponent('select content from html where url="' + reviewURL + '" and compat="html5" and xpath=\'//div[@id="main"]/ul/li/div[@class="info"]/span\'');
             record.url = 'http://query.yahooapis.com/v1/public/yql?q=' + q + '&format=json&callback=?'
@@ -226,7 +248,8 @@
     }
  
     function scoreFound(score,record){
-    
+        $('body').removeClass('loading');
+        status("");
         if(Array.isArray(score)){
             //use average review score, if multiple reviews
             var sum = 0;
@@ -266,7 +289,20 @@
         });
         var xMin = sortedSeries[0][0];
         var xMax = sortedSeries[sortedSeries.length-1][0];
-        var fittedSeries = [[xMin,fitter.project(xMin)],[xMax,fitter.project(xMax)]];
+        var vStart = fitter.project(xMin);
+        var vEnd = fitter.project(xMax);
+        if(vStart > vEnd){
+            $('#result .verdict').text('getting worse');
+        }else{
+            $('#result .verdict').text('improving');
+        }
+        var years = (xMax/1000 - xMin/1000) / 31536000;
+        
+        var change = (vEnd - vStart)/vStart*100;
+        $('#result .percent').text((change/years).toFixed(2));
+        $('#result p').removeClass('hidden');
+        
+        var fittedSeries = [[xMin,vStart],[xMax,vEnd]];
         plot.setData([{
             data:sortedSeries
         },{
@@ -279,7 +315,6 @@
         plot.draw();
     } 
  
-    //----- utility functions for pitchfork search -----//
     
     function sanitize(str) {
         return str ? str.toLowerCase() : str;
@@ -301,5 +336,18 @@
             url: obj.url
         }, normalizeP4kResult(obj.name));
     }
+    
+    function getUrlVars() {
+        var vars = {};
+        var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+            vars[key] = value;
+        });
+        return vars;
+    }
+    
+    function status(s){
+        $('#status').text(s);
+    }
+    
  });
 })(jQuery);
