@@ -1,8 +1,6 @@
 //pitchfork scraping originally from:
 //http://lukecod.es/blog/2012/02/14/pitchfork-dot-com-album-rating-api/
 
-//colors: http://www.colourlovers.com/palette/46688/fresh_cut_day
-
 (function ($, undefined) {
  $(document).ready(function(){
     var lastfm_key = "329696137d0d82dbc429a8091d00b9fd";
@@ -20,16 +18,16 @@
             lines: {
                 show: true,
                 fill: true,
-                fillColor: '#40C0CB'
+                fillColor: '#EBEBEB'
             },
             points:{
               show:true,
-              fillColor:'#F9F2E7'
+              fillColor:'#fff'
             },
-            highlightColor: '#AEE239',
+            highlightColor: '#000',
             shadowSize:0
         },
-        colors: [ '#40C0CB', '#F9F2E7' ],
+        colors: ['#ddd','#ccc'],
         grid: {
             show: false,
             hoverable: true,
@@ -53,9 +51,9 @@
             display: 'none',
             top: y + 5,
             left: x + 5,
-            border: '1px solid #fdd',
-            padding: '2px',
-            'background-color': '#fee',
+            padding: '5px',
+            color: '#fff',
+            'background-color': '#000',
             opacity: 0.80
         }).appendTo("body").fadeIn(200);
     }
