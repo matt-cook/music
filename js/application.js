@@ -1,5 +1,8 @@
 //pitchfork scraping originally from:
 //http://lukecod.es/blog/2012/02/14/pitchfork-dot-com-album-rating-api/
+
+//colors: http://www.colourlovers.com/palette/46688/fresh_cut_day
+
 (function ($, undefined) {
  $(document).ready(function(){
     var lastfm_key = "329696137d0d82dbc429a8091d00b9fd";
@@ -16,11 +19,21 @@
         series: {
             lines: {
                 show: true,
-                fill: true
-            }
+                fill: true,
+                fillColor: '#40C0CB'
+            },
+            points:{
+              show:true,
+              fillColor:'#F9F2E7'
+            },
+            highlightColor: '#AEE239',
+            shadowSize:0
         },
+        colors: [ '#40C0CB', '#F9F2E7' ],
         grid: {
-            show: false
+            show: false,
+            hoverable: true,
+            clickeable: true
         },
         xaxis: {
             mode: "time",
@@ -28,8 +41,44 @@
         },
         yaxis: {
             min:0,
-            max: 10,
+            max: 14,
             ticks: false
+        }
+    });
+
+
+    function showTooltip(x, y, contents) {
+        $('<div id="tooltip">' + contents + '</div>').css( {
+            position: 'absolute',
+            display: 'none',
+            top: y + 5,
+            left: x + 5,
+            border: '1px solid #fdd',
+            padding: '2px',
+            'background-color': '#fee',
+            opacity: 0.80
+        }).appendTo("body").fadeIn(200);
+    }
+    
+    var previousPoint = null;
+    $("#chart").bind("plothover", function (event, pos, item) {
+        $("#x").text(pos.x.toFixed(2));
+        $("#y").text(pos.y.toFixed(2));
+
+        if (item) {
+            if (previousPoint != item.dataIndex) {
+                previousPoint = item.dataIndex;
+                
+                $("#tooltip").remove();
+                var x = item.datapoint[0].toFixed(2),
+                    y = item.datapoint[1].toFixed(2);
+                
+                showTooltip(item.pageX, item.pageY, jQuery.format.date(parseInt(x),'MMM yyyy') + ": " + y);
+            }
+        }
+        else {
+            $("#tooltip").remove();
+            previousPoint = null;            
         }
     });
 
@@ -139,19 +188,21 @@
             if (reviews.length === 1) {
                 // Only 1 result, use it
                 theResult = returnResult(reviews[0]);
-            } else {
+            }
+            //not handling multiple results for now, will fall back to first result
+            /* else {
                 for (var i = 0, m = reviews.length; i < m; i++) {
                     var p4kResult = normalizeP4kResult(reviews[i].name),
                         p4kArtist = p4kResult.artist,
                         p4kAlbum = p4kResult.album;
-
+                   
                     if ((p4kArtist === artist || artist === '') && (p4kAlbum === album || album === '')) {
                         // we found an exact match!
                         theResult = returnResult(reviews[i]);
                         break;
                     }
                 }
-            }
+            }*/
 
             if ($.isEmptyObject(theResult)) {
                 // No exact match was found for the multiple results
@@ -213,7 +264,6 @@
             }
             fitter.add(record.to*1000,record.score);
         }
-        console.log(results[record.to]);
         var sortedSeries = series.slice(0).sort(function(a,b){
             return a[0] - b[0];
         });
@@ -224,7 +274,9 @@
             data:sortedSeries
         },{
             data: fittedSeries,
-            lines: { show: true, fill: false }
+            lines: { show: true, fill: false },
+            fillColor: '#C02942',
+            points:{ show:false }
         }]);
         plot.setupGrid();
         plot.draw();
@@ -233,7 +285,7 @@
     //----- utility functions for pitchfork search -----//
     
     function sanitize(str) {
-        return str.toLowerCase();
+        return str ? str.toLowerCase() : str;
     }
 
     function normalizeP4kResult(result) {
